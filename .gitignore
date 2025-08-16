@@ -4,3 +4,12 @@ dist/
 *.log
 .DS_Store
 captures/
+
+# Claude-specific
+.claude/
+CLAUDE.md
+.claude-completions/
+.claude-cache/
+.claude-session/
+*.claude-backup
+.claude-artifacts/
