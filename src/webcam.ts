@@ -87,7 +87,7 @@ export class WebcamManager {
   }
 
   initializeWebcam(deviceId: string) {
-    const opts = {
+    const opts: any = {
       width: 1280,
       height: 720,
       quality: 100,  // Maximum quality for best AI analysis
@@ -99,44 +99,65 @@ export class WebcamManager {
       verbose: false
     };
 
+    // Linux-specific settings
+    if (process.platform === 'linux') {
+      // Use /dev/video format for Linux
+      opts.device = `/dev/video${deviceId}`;
+      // Ensure we're using fswebcam
+      opts.platform = 'fswebcam';
+    }
+
     this.webcam = NodeWebcam.create(opts);
   }
 
   async captureImage(): Promise<string> {
     return new Promise(async (resolve, reject) => {
       const timestamp = Date.now();
-      const tempFilename = `capture_temp_${timestamp}`;
+      // On Linux, fswebcam needs the full filename with extension
+      const tempFilename = process.platform === 'linux' 
+        ? `capture_temp_${timestamp}.jpg`  
+        : `capture_temp_${timestamp}`;
       const tempFilepath = path.join(this.capturesDir, tempFilename);
       const finalFilename = `capture_${timestamp}.jpeg`;
       const finalFilepath = path.join(this.capturesDir, finalFilename);
+
+      // Ensure the captures directory exists
+      if (!fs.existsSync(this.capturesDir)) {
+        fs.mkdirSync(this.capturesDir, { recursive: true });
+      }
 
       this.webcam.capture(tempFilepath, async (err: Error, data: string) => {
         if (err) {
           reject(err);
         } else {
           try {
+            // Debug logging
+            console.log('Capture callback data:', data);
+            console.log('Expected path:', tempFilepath);
+            console.log('Captures dir contents:', fs.readdirSync(this.capturesDir));
+            
             // node-webcam returns the path where the image was saved
             let capturedPath = data || tempFilepath;
             
             // Check for various possible extensions
             if (!fs.existsSync(capturedPath)) {
-              // Try with common extensions
-              const extensions = ['.jpg', '.jpeg', '.bmp', '.ppm', '.png'];
+              // Try without extension first
+              const baseFilepath = tempFilepath.replace(/\.(jpg|jpeg|bmp|ppm|png)$/i, '');
+              const extensions = ['.jpg', '.jpeg', '.bmp', '.ppm', '.png', ''];
               for (const ext of extensions) {
-                if (fs.existsSync(tempFilepath + ext)) {
-                  capturedPath = tempFilepath + ext;
+                const tryPath = baseFilepath + ext;
+                if (fs.existsSync(tryPath)) {
+                  capturedPath = tryPath;
+                  console.log('Found file at:', capturedPath);
                   break;
                 }
               }
             }
             
-            // If still not found, check if data has the full path
-            if (!fs.existsSync(capturedPath) && data && fs.existsSync(data)) {
-              capturedPath = data;
-            }
-            
             if (!fs.existsSync(capturedPath)) {
-              throw new Error(`Captured image not found. Tried: ${capturedPath}`);
+              // List all files in captures directory for debugging
+              const files = fs.readdirSync(this.capturesDir);
+              throw new Error(`Captured image not found. Looked for: ${capturedPath}. Files in dir: ${files.join(', ')}`);
             }
             
             // Check what format was actually captured
