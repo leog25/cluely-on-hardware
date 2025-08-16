@@ -23,10 +23,24 @@ export class WebcamManager {
     }
   }
 
-  async getWindowsCameraNames(): Promise<string[]> {
+  async getCameraNames(): Promise<string[]> {
     return new Promise((resolve) => {
-      // Use PowerShell to get camera names on Windows
-      const command = `powershell -Command "Get-PnpDevice -Class Camera -Status OK | Select-Object -ExpandProperty FriendlyName"`;
+      const platform = process.platform;
+      let command: string;
+      
+      if (platform === 'win32') {
+        // Windows: Use PowerShell
+        command = `powershell -Command "Get-PnpDevice -Class Camera -Status OK | Select-Object -ExpandProperty FriendlyName"`;
+      } else if (platform === 'linux') {
+        // Linux: Use v4l2-ctl
+        command = `v4l2-ctl --list-devices 2>/dev/null | grep -E "^[^\\t]" | sed 's/:$//'`;
+      } else if (platform === 'darwin') {
+        // macOS: Use system_profiler
+        command = `system_profiler SPCameraDataType | grep "Model ID:" | sed 's/.*Model ID: //'`;
+      } else {
+        resolve([]);
+        return;
+      }
       
       exec(command, (error, stdout, stderr) => {
         if (error || stderr) {
@@ -42,8 +56,8 @@ export class WebcamManager {
 
   async listDevices(): Promise<WebcamDevice[]> {
     return new Promise(async (resolve, reject) => {
-      // First get the actual camera names from Windows
-      const cameraNames = await this.getWindowsCameraNames();
+      // First get the actual camera names from the OS
+      const cameraNames = await this.getCameraNames();
       
       NodeWebcam.list((list: string[]) => {
         if (!list || list.length === 0) {
@@ -76,7 +90,7 @@ export class WebcamManager {
     const opts = {
       width: 1280,
       height: 720,
-      quality: 100,
+      quality: 100,  // Maximum quality for best AI analysis
       delay: 0,
       saveShots: true,
       output: "jpeg",
@@ -107,13 +121,14 @@ export class WebcamManager {
             // Check what format was actually captured
             const buffer = fs.readFileSync(capturedPath);
             const isBmp = buffer[0] === 0x42 && buffer[1] === 0x4D;
+            const isPpm = buffer[0] === 0x50 && buffer[1] === 0x36; // PPM format (common on Linux)
             
-            if (isBmp) {
-              // Convert BMP to JPEG using Jimp silently
+            if (isBmp || isPpm) {
+              // Convert BMP/PPM to JPEG using Jimp silently
               const image = await Jimp.read(capturedPath);
               await image.write(finalFilepath);
               
-              // Remove the temporary BMP file
+              // Remove the temporary file
               fs.unlinkSync(capturedPath);
               
               resolve(finalFilepath);

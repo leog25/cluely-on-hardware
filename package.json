@@ -1,7 +1,12 @@
 {
   "name": "huely",
   "version": "1.0.0",
-  "description": "CLI tool to capture webcam screenshots and analyze them with OpenAI",
+  "description": "Cross-platform CLI tool to capture webcam screenshots and analyze them with OpenAI",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": ["win32", "linux", "darwin"],
+  "cpu": ["x64", "arm64", "arm"],
   "main": "dist/index.js",
   "bin": {
     "huely": "./dist/index.js"
