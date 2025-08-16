@@ -119,10 +119,20 @@ export class WebcamManager {
       verbose: false
     };
 
-    // Linux-specific settings
+    // Linux-specific settings (including Raspberry Pi)
     if (process.platform === 'linux') {
       // fswebcam expects the device path directly
       opts.device = `/dev/video${deviceId}`;
+      // Add skip frames to allow camera to warm up (critical for Raspberry Pi)
+      opts.skip = 20;  // Skip first 20 frames to let camera adjust
+      // Add delay for camera initialization
+      opts.delay = 1;  // 1 second delay
+      // Set specific fswebcam options
+      opts.setValues = {
+        brightness: 60,
+        contrast: 15,
+        gamma: 100
+      };
     }
 
     this.webcam = NodeWebcam.create(opts);
@@ -199,9 +209,22 @@ export class WebcamManager {
               // Remove the temporary file
               fs.unlinkSync(capturedPath);
               
+              // Check if the converted image is black
+              const finalBuffer = fs.readFileSync(finalFilepath);
+              if (this.isImageBlack(finalBuffer)) {
+                throw new Error('Captured image appears to be black. Camera may need more warm-up time.');
+              }
+              
               resolve(finalFilepath);
             } else {
-              // If it's already JPEG or other format, just rename it
+              // If it's already JPEG or other format, check if it's black
+              if (this.isImageBlack(buffer)) {
+                // Remove the black image
+                fs.unlinkSync(capturedPath);
+                throw new Error('Captured image appears to be black. Camera may need more warm-up time.');
+              }
+              
+              // Rename to final path
               fs.renameSync(capturedPath, finalFilepath);
               resolve(finalFilepath);
             }
@@ -211,6 +234,23 @@ export class WebcamManager {
         }
       });
     });
+  }
+
+  private isImageBlack(buffer: Buffer): boolean {
+    // Check if image is mostly black (common issue with webcams on Raspberry Pi)
+    // Sample the first 1000 bytes after header
+    const sampleSize = Math.min(1000, buffer.length - 100);
+    let blackPixels = 0;
+    
+    // Skip JPEG header (usually first 100 bytes)
+    for (let i = 100; i < 100 + sampleSize; i++) {
+      if (buffer[i] < 20) {  // Very dark pixel
+        blackPixels++;
+      }
+    }
+    
+    // If more than 90% of sampled pixels are black, image is likely black
+    return (blackPixels / sampleSize) > 0.9;
   }
 
   async captureImageAsBase64(): Promise<string> {

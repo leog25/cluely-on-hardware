@@ -80,8 +80,31 @@ class HuelyCLI {
       }
       
       const captureSpinner = this.ui.showCapturing();
-      const imagePath = await this.webcamManager.captureImage();
-      captureSpinner.succeed(`Image captured!`);
+      let imagePath: string | null = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      // Retry logic for black frames (common on Raspberry Pi)
+      while (!imagePath && retryCount < maxRetries) {
+        try {
+          imagePath = await this.webcamManager.captureImage();
+          captureSpinner.succeed(`Image captured!`);
+        } catch (captureError: any) {
+          retryCount++;
+          if (captureError.message.includes('black') && retryCount < maxRetries) {
+            captureSpinner.text = `Camera warming up... Retry ${retryCount}/${maxRetries}`;
+            // Wait a bit longer between retries for camera to stabilize
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } else {
+            captureSpinner.fail(`Capture failed: ${captureError.message}`);
+            throw captureError;
+          }
+        }
+      }
+      
+      if (!imagePath) {
+        throw new Error('Failed to capture image after multiple attempts');
+      }
       
       const analyzeSpinner = this.ui.showAnalyzing();
       const analysis = await this.openaiClient.analyzeImage(imagePath);
