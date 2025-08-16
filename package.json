@@ -1,0 +1,38 @@
+{
+  "name": "huely",
+  "version": "1.0.0",
+  "description": "CLI tool to capture webcam screenshots and analyze them with OpenAI",
+  "main": "dist/index.js",
+  "bin": {
+    "huely": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "cli",
+    "webcam",
+    "openai",
+    "screenshot"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@types/inquirer": "^8.2.12",
+    "chalk": "^4.1.2",
+    "dotenv": "^16.4.5",
+    "inquirer": "^8.2.7",
+    "jimp": "^1.6.0",
+    "keypress": "^0.2.1",
+    "node-webcam": "^0.8.0",
+    "openai": "^4.52.0",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  }
+}
