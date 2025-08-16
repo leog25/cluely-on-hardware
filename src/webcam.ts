@@ -116,7 +116,28 @@ export class WebcamManager {
         } else {
           try {
             // node-webcam returns the path where the image was saved
-            const capturedPath = data || tempFilepath;
+            let capturedPath = data || tempFilepath;
+            
+            // Check for various possible extensions
+            if (!fs.existsSync(capturedPath)) {
+              // Try with common extensions
+              const extensions = ['.jpg', '.jpeg', '.bmp', '.ppm', '.png'];
+              for (const ext of extensions) {
+                if (fs.existsSync(tempFilepath + ext)) {
+                  capturedPath = tempFilepath + ext;
+                  break;
+                }
+              }
+            }
+            
+            // If still not found, check if data has the full path
+            if (!fs.existsSync(capturedPath) && data && fs.existsSync(data)) {
+              capturedPath = data;
+            }
+            
+            if (!fs.existsSync(capturedPath)) {
+              throw new Error(`Captured image not found. Tried: ${capturedPath}`);
+            }
             
             // Check what format was actually captured
             const buffer = fs.readFileSync(capturedPath);
