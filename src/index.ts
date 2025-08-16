@@ -153,6 +153,34 @@ class HuelyCLI {
 }
 
 async function main() {
+  // Check for version flag
+  const args = process.argv.slice(2);
+  if (args.includes('--version') || args.includes('-v')) {
+    const packageJson = require('../package.json');
+    console.log(`huely v${packageJson.version}`);
+    process.exit(0);
+  }
+  
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+huely - Webcam AI CLI Tool
+
+Usage: huely [options]
+
+Options:
+  -v, --version  Show version number
+  -h, --help     Show help
+
+Controls:
+  SPACE  Capture and analyze
+  W      Switch webcam  
+  K      Configure API key
+  C      Clear screen
+  Q      Quit
+    `);
+    process.exit(0);
+  }
+
   const app = new HuelyCLI();
   
   process.on('SIGINT', () => {
