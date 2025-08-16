@@ -1,6 +1,14 @@
 {
   "name": "huely",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leog25/cluely-on-hardware.git"
+  },
+  "homepage": "https://github.com/leog25/cluely-on-hardware#readme",
+  "bugs": {
+    "url": "https://github.com/leog25/cluely-on-hardware/issues"
+  },
   "description": "Cross-platform CLI tool to capture webcam screenshots and analyze them with OpenAI",
   "engines": {
     "node": ">=14.0.0"
@@ -14,15 +22,22 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "cli",
     "webcam",
     "openai",
-    "screenshot"
+    "screenshot",
+    "ai",
+    "vision",
+    "gpt4",
+    "image-analysis",
+    "leetcode",
+    "problem-solver"
   ],
-  "author": "",
+  "author": "leog25",
   "license": "MIT",
   "dependencies": {
     "chalk": "^4.1.2",
