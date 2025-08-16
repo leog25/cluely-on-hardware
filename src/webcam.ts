@@ -130,13 +130,20 @@ export class WebcamManager {
 
   async captureImage(): Promise<string> {
     return new Promise(async (resolve, reject) => {
+      // Generate unique ID with timestamp and random component to prevent collisions
       const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const uniqueId = `${timestamp}_${randomId}`;
+      
+      // Clear old captures before taking new one
+      this.clearOldCaptures();
+      
       // On Linux, fswebcam needs the full filename with extension
       const tempFilename = process.platform === 'linux' 
-        ? `capture_temp_${timestamp}.jpg`  
-        : `capture_temp_${timestamp}`;
+        ? `capture_temp_${uniqueId}.jpg`  
+        : `capture_temp_${uniqueId}`;
       const tempFilepath = path.join(this.capturesDir, tempFilename);
-      const finalFilename = `capture_${timestamp}.jpeg`;
+      const finalFilename = `capture_${uniqueId}.jpeg`;
       const finalFilepath = path.join(this.capturesDir, finalFilename);
 
       // Ensure the captures directory exists
@@ -152,14 +159,14 @@ export class WebcamManager {
             // node-webcam returns the path where the image was saved
             let capturedPath = data || tempFilepath;
             
-            // Check for various possible extensions
+            // Check for various possible extensions with unique ID
             if (!fs.existsSync(capturedPath)) {
-              // Try without extension first
+              // Try without extension first, but only for files with our unique ID
               const baseFilepath = tempFilepath.replace(/\.(jpg|jpeg|bmp|ppm|png)$/i, '');
               const extensions = ['.jpg', '.jpeg', '.bmp', '.ppm', '.png', ''];
               for (const ext of extensions) {
                 const tryPath = baseFilepath + ext;
-                if (fs.existsSync(tryPath)) {
+                if (fs.existsSync(tryPath) && tryPath.includes(uniqueId)) {
                   capturedPath = tryPath;
                   break;
                 }
@@ -169,7 +176,14 @@ export class WebcamManager {
             if (!fs.existsSync(capturedPath)) {
               // List all files in captures directory for debugging
               const files = fs.readdirSync(this.capturesDir);
-              throw new Error(`Captured image not found. Looked for: ${capturedPath}. Files in dir: ${files.join(', ')}`);
+              throw new Error(`Captured image not found. Looked for: ${capturedPath} with ID: ${uniqueId}. Files in dir: ${files.join(', ')}`);
+            }
+            
+            // Validate that the captured file was created recently (within last 5 seconds)
+            const captureStats = fs.statSync(capturedPath);
+            const fileAge = Date.now() - captureStats.mtimeMs;
+            if (fileAge > 5000) {
+              throw new Error(`Captured image appears to be stale (${fileAge}ms old). This might be a previous capture.`);
             }
             
             // Check what format was actually captured
@@ -203,6 +217,31 @@ export class WebcamManager {
     const imagePath = await this.captureImage();
     const imageBuffer = fs.readFileSync(imagePath);
     return imageBuffer.toString('base64');
+  }
+
+  private clearOldCaptures() {
+    // Clear captures older than 30 seconds to prevent using stale images
+    if (!fs.existsSync(this.capturesDir)) {
+      return;
+    }
+    
+    const files = fs.readdirSync(this.capturesDir);
+    const now = Date.now();
+    const thirtySeconds = 30 * 1000;
+
+    files.forEach(file => {
+      if (file.startsWith('capture_')) {
+        const filePath = path.join(this.capturesDir, file);
+        try {
+          const stats = fs.statSync(filePath);
+          if (now - stats.mtimeMs > thirtySeconds) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (err) {
+          // Ignore errors when cleaning up
+        }
+      }
+    });
   }
 
   cleanup() {
