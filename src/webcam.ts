@@ -56,7 +56,27 @@ export class WebcamManager {
 
   async listDevices(): Promise<WebcamDevice[]> {
     return new Promise(async (resolve, reject) => {
-      // First get the actual camera names from the OS
+      // For Linux, always provide available video devices
+      if (process.platform === 'linux') {
+        const devices: WebcamDevice[] = [];
+        
+        // Check for /dev/video* devices
+        for (let i = 0; i < 10; i++) {
+          if (fs.existsSync(`/dev/video${i}`)) {
+            devices.push({
+              name: `USB Camera (video${i})`,
+              id: i.toString()
+            });
+          }
+        }
+        
+        if (devices.length > 0) {
+          resolve(devices);
+          return;
+        }
+      }
+      
+      // Fallback to original detection for Windows/Mac
       const cameraNames = await this.getCameraNames();
       
       NodeWebcam.list((list: string[]) => {
@@ -101,10 +121,8 @@ export class WebcamManager {
 
     // Linux-specific settings
     if (process.platform === 'linux') {
-      // Use /dev/video format for Linux
+      // fswebcam expects the device path directly
       opts.device = `/dev/video${deviceId}`;
-      // Ensure we're using fswebcam
-      opts.platform = 'fswebcam';
     }
 
     this.webcam = NodeWebcam.create(opts);
@@ -131,11 +149,6 @@ export class WebcamManager {
           reject(err);
         } else {
           try {
-            // Debug logging
-            console.log('Capture callback data:', data);
-            console.log('Expected path:', tempFilepath);
-            console.log('Captures dir contents:', fs.readdirSync(this.capturesDir));
-            
             // node-webcam returns the path where the image was saved
             let capturedPath = data || tempFilepath;
             
@@ -148,7 +161,6 @@ export class WebcamManager {
                 const tryPath = baseFilepath + ext;
                 if (fs.existsSync(tryPath)) {
                   capturedPath = tryPath;
-                  console.log('Found file at:', capturedPath);
                   break;
                 }
               }
