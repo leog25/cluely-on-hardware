@@ -2,6 +2,7 @@ import * as readline from 'readline';
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
+import { highlight } from 'cli-highlight';
 
 export class CLIUI {
   private rl: readline.Interface | null = null;
@@ -13,7 +14,8 @@ export class CLIUI {
   private setupReadline() {
     this.rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
+      terminal: false  // Disable terminal features to prevent echo
     });
 
     if (process.stdin.isTTY) {
@@ -86,10 +88,45 @@ export class CLIUI {
     console.log(chalk.green('\n✨ AI Analysis:'));
     console.log(chalk.white('────────────────────────────────────────'));
     
-    const lines = response.split('\n');
-    lines.forEach(line => {
-      console.log(chalk.white(line));
-    });
+    // Parse response for code blocks
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = codeBlockRegex.exec(response)) !== null) {
+      // Print text before code block
+      const textBefore = response.slice(lastIndex, match.index);
+      if (textBefore.trim()) {
+        textBefore.split('\n').forEach(line => {
+          console.log(chalk.white(line));
+        });
+      }
+      
+      // Extract language and code
+      const language = match[1] || 'javascript';
+      const code = match[2];
+      
+      // Print syntax highlighted code
+      console.log(chalk.gray('\n--- Code ---'));
+      try {
+        const highlighted = highlight(code, { language: language.toLowerCase() });
+        console.log(highlighted);
+      } catch (err) {
+        // Fallback to plain code if highlighting fails
+        console.log(chalk.cyan(code));
+      }
+      console.log(chalk.gray('------------\n'));
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Print remaining text after last code block
+    const remainingText = response.slice(lastIndex);
+    if (remainingText.trim()) {
+      remainingText.split('\n').forEach(line => {
+        console.log(chalk.white(line));
+      });
+    }
     
     console.log(chalk.white('────────────────────────────────────────\n'));
   }
@@ -111,9 +148,15 @@ export class CLIUI {
   async waitForKeypress(): Promise<string> {
     return new Promise((resolve) => {
       const handler = (chunk: Buffer) => {
+        // Handle Ctrl+C immediately
+        if (chunk[0] === 0x03) {
+          resolve('quit');
+          return;
+        }
+        
         const key = chunk.toString();
         
-        if (key === '\u0003' || key === 'q' || key === 'Q') {
+        if (key === 'q' || key === 'Q') {
           resolve('quit');
         } else if (key === ' ') {
           resolve('capture');
@@ -123,12 +166,16 @@ export class CLIUI {
           resolve('switch');
         } else if (key === 'k' || key === 'K') {
           resolve('config');
+        } else {
+          // For any other key (including backspace), re-attach the listener
+          process.stdin.once('data', handler);
         }
-        // Ignore other keys and keep listening
       };
 
       // Keep stdin in raw mode and listening
-      process.stdin.setRawMode(true);
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(true);
+      }
       process.stdin.resume();
       process.stdin.once('data', handler);
     });

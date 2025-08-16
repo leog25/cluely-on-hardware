@@ -122,21 +122,21 @@ class HuelyCLI {
           break;
         case 'capture':
           await this.captureAndAnalyze();
-          console.log(chalk.gray('\nListening for commands...'));
+          console.log(chalk.gray('Listening for commands...'));
           break;
         case 'clear':
           this.ui.clearScreen();
-          console.log(chalk.gray('\nListening for commands...'));
+          console.log(chalk.gray('Listening for commands...'));
           break;
         case 'switch':
-          console.log(chalk.yellow('\n🔄 Switching webcam...'));
+          console.log(chalk.yellow('🔄 Switching webcam...'));
           await this.selectAndInitializeWebcam();
           this.ui.showSuccess('Webcam switched successfully!');
-          console.log(chalk.gray('\nListening for commands...'));
+          console.log(chalk.gray('Listening for commands...'));
           break;
         case 'config':
           await this.configureApiKey();
-          console.log(chalk.gray('\nListening for commands...'));
+          console.log(chalk.gray('Listening for commands...'));
           break;
       }
     }

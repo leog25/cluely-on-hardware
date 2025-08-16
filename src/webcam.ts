@@ -109,8 +109,7 @@ export class WebcamManager {
             const isBmp = buffer[0] === 0x42 && buffer[1] === 0x4D;
             
             if (isBmp) {
-              console.log('Converting BMP to JPEG...');
-              // Convert BMP to JPEG using Jimp
+              // Convert BMP to JPEG using Jimp silently
               const image = await Jimp.read(capturedPath);
               await image.write(finalFilepath);
               
